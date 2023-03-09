@@ -1,52 +1,41 @@
 import Head from 'next/head'
-import { useState, useEffect } from 'react'
-import Web3 from 'web3'
-import { CONTRACT_ADDRESS, CONTRACT_ABI } from '@/utils/contract'
-import { ethers } from "ethers";
+import { CONTRACT_ADDRESS, CONTRACT_ABI } from '../utils/contract'
+import { useAccount, useConnect, useContract, useSigner } from 'wagmi'
+import { InjectedConnector } from 'wagmi/connectors/injected'
+import { useEffect, useState } from 'react'
+
 
 export default function Home() {
 
-  const [address, setAddress] = useState(null);
-  const [contract, setContract] = useState(null);
-  const [loading, setLoading] = useState(false)
+  const { address } = useAccount()
+  const { connect } = useConnect({
+    connector: new InjectedConnector(),
+  })
+  const { signer } = useSigner()
+  const contract = useContract({
+    address: CONTRACT_ADDRESS,
+    abi: CONTRACT_ABI,
+    signerOrProvider: signer
+  })
+
+  console.log("ADDRESS ", address)
+  console.log("CONTRACT ", contract)
+
+  const [hydrated, setHydrated] = useState(false);
+
+  useEffect(() => {
+    setHydrated(true);
+  }, []);
 
   const mintNft = async () => {
     try {
-      setLoading(true)
       const mint = await contract.safeMint()
       await mint.wait()
-      console.log("MINTED ", mint)
-      setLoading(false)
+      console.log(mint)
     } catch (err) {
       console.log(err)
-      setLoading(false)
     }
   }
-
-  const connectWallet = async () => {
-    if (window) {
-      const { ethereum } = window
-      if (ethereum) {
-        try {
-          const accounts = await ethereum.request({ method: "eth_requestAccounts" })
-          console.log(accounts)
-          setAddress(accounts[0])
-          let provider = new ethers.providers.Web3Provider(window.ethereum)
-          // Prompt user for account connections
-          await provider.send("eth_requestAccounts", []);
-          let signer = provider.getSigner();
-          let c = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer)
-          setContract(c)
-        } catch (err) {
-          console.log(err)
-        }
-      }
-    }
-  }
-
-  console.log("Address ", address)
-  console.log("CONTRACT ", contract)
-
 
   return (
     <>
@@ -59,10 +48,14 @@ export default function Home() {
       <main className="flex flex-col gap-4 items-center justify-center min-h-screen">
         <h1 className='text-4xl font-extrabold'>Interact with contract</h1>
         {
-          address ? (
-            <button onClick={mintNft} className='py-2 px-4 rounded-xl bg-white text-black transform hover:scale-105'>Mint NFT</button>
+          hydrated ? (
+            address ? (
+              <button onClick={mintNft} className='py-2 px-4 rounded-xl bg-white text-black transform hover:scale-105'>Mint NFT</button>
+            ) : (
+              <button onClick={() => connect()} className='py-2 px-4 rounded-xl bg-white text-black transform hover:scale-105'>{address ? 'Mint' : 'Connect Wallet'}</button>
+            )
           ) : (
-            <button onClick={connectWallet} className='py-2 px-4 rounded-xl bg-white text-black transform hover:scale-105'>Connect Wallet</button>
+            null
           )
         }
       </main>
